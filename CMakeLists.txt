@@ -16,8 +16,8 @@ pico_sdk_init()
 add_executable(${PROJECT_NAME}
     src/main.c
     src/ssd1306_driver.h src/ssd1306_driver.c
+    src/video_decoder.h src/video_decoder.c
     src/bad_apple.h
-    src/ssd1306_font.h
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE

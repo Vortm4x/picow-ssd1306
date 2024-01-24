@@ -21,8 +21,6 @@
     "cortex-debug.openocdPath": "${env:PICO_OPENOCD}",
     "cortex-debug.variableUseNaturalFormat": false,
     "files.associations": {
-        "heatshrink_decoder.h": "c",
-        "heatshrink_config.h": "c",
-        "stdint.h": "c"
+        "video_decoder.h": "c"
     }
 }
