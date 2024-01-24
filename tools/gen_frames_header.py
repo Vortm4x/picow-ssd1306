@@ -2,7 +2,7 @@ import cv2
 import common_util
 
 
-def gen_header(header_name : str, frames : list[cv2.typing.MatLike], frame_rate : int):
+def gen_header(header_name : str, frames : list[cv2.typing.MatLike], frame_rate : int) -> None:
 
     frame_count = len(frames)
     guard_macro = f"{header_name.upper()}_H"
@@ -50,18 +50,29 @@ uint8_t __in_flash() {header_name}_video_frames[VIDEO_FRAME_COUNT][SSD1306_RAM_B
 
         header.write("   },\n")
 
-        print(f"frame {frame_no + 1}/{len(frames)}")
+        print(f"extracting frame {frame_no + 1}/{len(frames)}")
 
     header.write(header_end)
     header.close()
 
 
-def main(video_file_name : str, header_name : str, frame_rate : int):
-    video_frames = common_util.extract_frames(video_file_name)
+def main(video_filename : str, header_name : str, frame_rate : int) -> None:
+    
+    print("extracting frames...")
+    video_frames = common_util.extract_frames(video_filename)
+
+    print("generating header...")
     gen_header(header_name, video_frames, frame_rate)
+
+    print("DONE!")
+
 
 
 if __name__ == '__main__':
 
     # feel free to edit
-    main('bad_apple.mp4', 'bad_apple', 30)
+    main(
+        video_filename='bad_apple.mp4', 
+        header_name='bad_apple', 
+        frame_rate=30, 
+    )
