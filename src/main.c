@@ -4,12 +4,14 @@
 #include <pico/stdlib.h>
 #include <pico/cyw43_arch.h>
 #include <pico/binary_info.h>
+#include <pico/platform.h>
 #include <hardware/gpio.h>
 #include <hardware/i2c.h>
 
 #include "ssd1306_driver.h"
-#include "raspberry26x32.h"
-#include "ssd1306_font.h"
+#include "bad_apple.h"
+#include "heatshrink_decoder.h"
+#include "heatshrink_config.h"
 
 
 #define SSD1306_I2C_INSTANCE        i2c0
@@ -17,33 +19,26 @@
 #define SSD1306_I2C_SCL_PIN         17
 #define SSD1306_I2C_ADDRESS         _u(0x3C)
 
-typedef struct point_t {
-    uint8_t start_col;
-    uint8_t end_col;
-    uint8_t start_page;
-    uint8_t end_page;
-    size_t ram_buffer_len;
-} 
-point_t;
+#define DECODER_WINDOW_SZ2          8
+#define DECODER_LOOKAHEAD_SZ2       4
 
-typedef struct render_area_t {
-    uint8_t start_col;
-    uint8_t end_col;
-    uint8_t start_page;
-    uint8_t end_page;
-    size_t ram_buffer_len;
-} 
-render_area_t;
+
+typedef struct decoder_context_t
+{
+    size_t frame_buffer_size;
+    size_t video_buffer_size;
+    size_t video_bytes_read;
+    heatshrink_decoder hsd;
+}
+decoder_context_t;
 
 
 void init_display();
 bool init_all();
-void render(uint8_t* ram_buffer, render_area_t* render_area);
-void set_pixel(uint8_t* ram_buffer, size_t x, size_t y, bool is_on);
-void draw_line(uint8_t* ram_buffer, int x0, int y0, int x1, int y1, bool is_on);
-size_t get_font_idx(uint8_t character); 
-void write_char(uint8_t* ram_buffer, size_t x, size_t y, uint8_t character);
-void write_str(uint8_t* ram_buffer, size_t x, size_t y, char* str);
+void render(uint8_t ram_buffer[]);
+void init_decoder_context(decoder_context_t* decoder_context, size_t frame_buffer_size, size_t video_buffer_size);
+void reset_decoder_context(decoder_context_t* decoder_context);
+bool decode_next_buffer(decoder_context_t* decoder_context, uint8_t frame_buffer[], uint8_t video_buffer[]);
 
 
 void init_display()
@@ -100,147 +95,73 @@ bool init_all()
     return true;
 }
 
-void render(uint8_t* ram_buffer, render_area_t* render_area) 
+void render(uint8_t ram_buffer[]) 
 {
-    ssd1306_set_column_addr(render_area->start_col, render_area->end_col);
-    ssd1306_set_page_addr(render_area->start_page, render_area->end_page);
+    ssd1306_set_column_addr(0, SSD1306_WIDTH - 1);
+    ssd1306_set_page_addr(0, SSD1306_PAGE_COUNT - 1);
 
-    ssd1306_send_data(ram_buffer, render_area->ram_buffer_len);
+    ssd1306_send_data(ram_buffer, SSD1306_RAM_BUFF_SIZE);
 }
 
-void set_pixel(uint8_t* ram_buffer, size_t x, size_t y, bool is_on) 
+void init_decoder_context(decoder_context_t* decoder_context, size_t frame_buffer_size, size_t video_buffer_size)
 {
-    assert(x >= 0 && x < SSD1306_WIDTH && y >=0 && y < SSD1306_HEIGHT);
+    memset(decoder_context, 0, sizeof(decoder_context_t));
 
-    size_t bytes_per_row = (SSD1306_WIDTH * SSD1306_PAGE_HEIGHT) / 8;
-    size_t byte_idx = (y / 8) * bytes_per_row + x;
-    size_t bit_no = y % 8;
-    
-    uint8_t byte = ram_buffer[byte_idx];
-
-    if(is_on)
-    {
-        byte |=  1 << bit_no;
-    }
-    else
-    {
-        byte &= ~(1 << bit_no);
-    }
-
-    ram_buffer[byte_idx] = byte;
+    decoder_context->frame_buffer_size = frame_buffer_size;
+    decoder_context->video_buffer_size = video_buffer_size;
+    reset_decoder_context(decoder_context);
 }
 
-void draw_line(uint8_t* ram_buffer, int x0, int y0, int x1, int y1, bool is_on) 
+void reset_decoder_context(decoder_context_t* decoder_context)
 {
+    decoder_context->video_bytes_read = 0;
+    heatshrink_decoder_reset(&decoder_context->hsd);
+}
 
-    int dx =  abs(x1-x0);
-    int sx = x0<x1 ? 1 : -1;
-    int dy = -abs(y1-y0);
-    int sy = y0<y1 ? 1 : -1;
-    int err = dx+dy;
-    int e2;
-
-    while (true) 
+bool decode_next_buffer(decoder_context_t* decoder_context, uint8_t frame_buffer[], uint8_t video_buffer[])
+{
+    if(decoder_context->video_buffer_size == decoder_context->video_bytes_read)
     {
-        set_pixel(ram_buffer, x0, y0, is_on);
-
-        if (x0 == x1 && y0 == y1)
+        if(heatshrink_decoder_finish(&decoder_context->hsd) != HSDR_FINISH_MORE)
         {
-            break;
-        }
-        
-        e2 = 2 * err;
-
-        if (e2 >= dy) 
-        {
-            err += dy;
-            x0 += sx;
-        }
-        if (e2 <= dx) 
-        {
-            err += dx;
-            y0 += sy;
+            return false;
         }
     }
+
+    size_t frame_bytes_read = 0;
+
+    while(decoder_context->frame_buffer_size != frame_bytes_read)
+    {
+        size_t bytes_to_sink = MIN(
+            decoder_context->video_buffer_size - decoder_context->video_bytes_read, 
+            HEATSHRINK_STATIC_INPUT_BUFFER_SIZE
+        );
+        size_t bytes_to_poll = decoder_context->frame_buffer_size - frame_bytes_read;
+        size_t bytes_sunk = 0;
+        size_t bytes_polled = 0;
+
+        if(bytes_to_sink > 0)
+        {
+            heatshrink_decoder_sink(
+                &decoder_context->hsd,
+                &video_buffer[decoder_context->video_bytes_read], 
+                bytes_to_sink,
+                &bytes_sunk
+            );
+            decoder_context->video_bytes_read += bytes_sunk;
+        }
+
+        heatshrink_decoder_poll(
+            &decoder_context->hsd, 
+            &frame_buffer[frame_bytes_read], 
+            bytes_to_poll, 
+            &bytes_polled
+        );
+        frame_bytes_read += bytes_polled;
+    }
+
+    return true;
 }
-
-size_t get_font_idx(uint8_t character) 
-{
-    if (isalpha(character)) 
-    {
-        return toupper(character) - 'A' + 1;
-    }
-    else 
-    if (isdigit(character)) 
-    { 
-        return  character - '0' + 27;
-    }
-    else 
-    {
-        return  0;
-    }
-}
-
-
-static uint8_t reversed[sizeof(font)] = {0};
-
-uint8_t reverse(uint8_t b) 
-{
-   b = (b & 0xF0) >> 4 | (b & 0x0F) << 4;
-   b = (b & 0xCC) >> 2 | (b & 0x33) << 2;
-   b = (b & 0xAA) >> 1 | (b & 0x55) << 1;
-
-   return b;
-}
-
-void fill_reversed_cache() 
-{
-    // calculate and cache a reversed version of fhe font, because I defined it upside down...doh!
-    for (int i = 0; i < sizeof(font); ++i)
-    {
-        reversed[i] = reverse(font[i]);
-    }
-}
-
-void write_char(uint8_t* ram_buffer, size_t x, size_t y, uint8_t character) 
-{
-    if (reversed[0] == 0) 
-    {
-        fill_reversed_cache();
-    }
-
-    if (x > SSD1306_WIDTH - 8 || y > SSD1306_HEIGHT - 8)
-    {
-        return;
-    }
-
-    // For the moment, only write on Y row boundaries (every 8 vertical pixels)
-    y /= 8;
-
-    size_t font_idx = get_font_idx(character);
-    size_t ram_buffer_idx = y * 128 + x;
-
-    for (size_t i = 0; i < 8; ++i) 
-    {
-        ram_buffer[ram_buffer_idx++] = reversed[font_idx * 8 + i];
-    }
-}
-
-void write_str(uint8_t* ram_buffer, size_t x, size_t y, char* str) 
-{
-    // Cull out any string off the screen
-    if (x > SSD1306_WIDTH - 8 || y > SSD1306_HEIGHT - 8)
-    {
-        return;
-    }
-
-    for(size_t i = 0; str[i] != 0; ++i)
-    {
-        write_char(ram_buffer, x, y, str[i]);
-        x += SSD1306_PAGE_HEIGHT;
-    }
-}
-
 
 int main() 
 {   
@@ -249,94 +170,31 @@ int main()
         return -1;
     }
 
-    render_area_t frame_area;
-    frame_area.start_col = 0;    
-    frame_area.end_col = SSD1306_WIDTH - 1;
-    frame_area.start_page = 0;    
-    frame_area.end_page = SSD1306_PAGE_COUNT - 1;
-    frame_area.ram_buffer_len = SSD1306_RAM_BUFF_SIZE;
-
     uint8_t ram_buffer[SSD1306_RAM_BUFF_SIZE];
+    decoder_context_t decoder_context;
+
     memset(ram_buffer, 0, SSD1306_RAM_BUFF_SIZE);
-    render(ram_buffer, &frame_area);
-
-    for (int i = 0; i < 3; ++i) 
-    {
-        ssd1306_ignore_display_ram();
-        sleep_ms(500);
-        
-        ssd1306_follow_display_ram();
-        sleep_ms(500);
-    }
-
-    render_area_t picure_area;
-    picure_area.start_page = 0;
-    picure_area.end_page = (IMG_HEIGHT / SSD1306_PAGE_HEIGHT) - 1;    
+    init_decoder_context(&decoder_context, SSD1306_RAM_BUFF_SIZE, sizeof(compressed_video_buffer));
 
 
     while (true) 
     {
-        picure_area.start_col = 0;
-        picure_area.end_col = IMG_WIDTH - 1;
-        picure_area.ram_buffer_len = IMG_WIDTH * (IMG_HEIGHT / SSD1306_PAGE_HEIGHT);
-
-        uint8_t picture_offset = 5 + IMG_WIDTH;
-        for (int i = 0; i < 3; ++i) 
-        {
-            render(raspberry26x32, &picure_area);
-            picure_area.start_col += picture_offset;
-            picure_area.end_col += picture_offset;
-        }
-        
-        ssd1306_setup_horizontal_scroll(SSD1306_CMD_FLAG_R_SCROLL, 0, 3, SSD1306_SCROLL_FRAME_FREQ_5);
-        ssd1306_start_scrolling();
-        sleep_ms(5000);
-        ssd1306_stop_scrolling();
-
-        char* text[] = {
-            "A long time ago",
-            "  on an OLED ",
-            "   display",
-            " far far away",
-            "Lived a small",
-            "red raspberry",
-            "by the name of",
-            "    PICO"
-        };
-        
-        size_t y = 0;
-        for (size_t i = 0; i < count_of(text); ++i) 
-        {
-            write_str(ram_buffer, 5, y, text[i]);
-            y+=8;
-        }
-        render(ram_buffer, &frame_area);
-
-
+        render(video_title);
         sleep_ms(3000);
-        ssd1306_display_inversion_on();
-        sleep_ms(3000);
-        ssd1306_display_inversion_off();
         
+        absolute_time_t abs_time = get_absolute_time();
 
-        bool pixel_value = true;
+        while(decode_next_buffer(&decoder_context, ram_buffer, compressed_video_buffer))
+        {            
+            render(ram_buffer);
 
-        for (size_t i = 0; i < 2; ++i) 
-        {
-            for (size_t x = 0; x < SSD1306_WIDTH; ++x) 
-            {
-                draw_line(ram_buffer, x, 0, SSD1306_WIDTH - 1 - x, SSD1306_HEIGHT - 1, pixel_value);
-                render(ram_buffer, &frame_area);
-            }
+            abs_time._private_us_since_boot += 1000000 / VIDEO_FRAME_RATE;
+            sleep_until(abs_time);
 
-            for (int y = SSD1306_HEIGHT - 1; y >= 0; --y) 
-            {
-                draw_line(ram_buffer, 0, y, SSD1306_WIDTH - 1, SSD1306_HEIGHT - 1 - y, pixel_value);
-                render(ram_buffer, &frame_area);
-            }
-
-            pixel_value = false;
+            abs_time = get_absolute_time();
         }
+                
+        reset_decoder_context(&decoder_context);
     }
 
     return 0;

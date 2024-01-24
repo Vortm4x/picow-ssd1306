@@ -19,13 +19,10 @@
     "cmake.buildBeforeRun": true,
     "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
     "cortex-debug.openocdPath": "${env:PICO_OPENOCD}",
+    "cortex-debug.variableUseNaturalFormat": false,
     "files.associations": {
-        "i2c.h": "c",
-        "binary_info.h": "c",
-        "code.h": "c",
-        "structure.h": "c",
-        "defs.h": "c",
+        "heatshrink_decoder.h": "c",
+        "heatshrink_config.h": "c",
         "stdint.h": "c"
-    },
-    "cortex-debug.variableUseNaturalFormat": false
+    }
 }

@@ -9,14 +9,14 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 
 include(lwip_import.cmake)
-
+add_subdirectory(heatshrink)
 pico_sdk_init()
 
 
 add_executable(${PROJECT_NAME}
     src/main.c
     src/ssd1306_driver.h src/ssd1306_driver.c
-    src/raspberry26x32.h
+    src/bad_apple.h
     src/ssd1306_font.h
 )
 
@@ -29,6 +29,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     hardware_i2c
     pico_cyw43_arch_none
     LWIP_PORT
+    heatshrink
 )
 
 target_compile_options(${PROJECT_NAME} PRIVATE -Wall)
