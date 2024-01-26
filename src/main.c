@@ -181,40 +181,15 @@ size_t get_font_idx(uint8_t character)
     }
 }
 
-
-static uint8_t reversed[sizeof(font)] = {0};
-
-uint8_t reverse(uint8_t b) 
-{
-   b = (b & 0xF0) >> 4 | (b & 0x0F) << 4;
-   b = (b & 0xCC) >> 2 | (b & 0x33) << 2;
-   b = (b & 0xAA) >> 1 | (b & 0x55) << 1;
-
-   return b;
-}
-
-void fill_reversed_cache() 
-{
-    // calculate and cache a reversed version of fhe font, because I defined it upside down...doh!
-    for (int i = 0; i < sizeof(font); ++i)
-    {
-        reversed[i] = reverse(font[i]);
-    }
-}
-
 void write_char(uint8_t* ram_buffer, size_t x, size_t y, uint8_t character) 
 {
-    if (reversed[0] == 0) 
-    {
-        fill_reversed_cache();
-    }
-
     if (x > SSD1306_WIDTH - 8 || y > SSD1306_HEIGHT - 8)
     {
         return;
     }
 
     // For the moment, only write on Y row boundaries (every 8 vertical pixels)
+    
     y /= 8;
 
     size_t font_idx = get_font_idx(character);
@@ -222,7 +197,7 @@ void write_char(uint8_t* ram_buffer, size_t x, size_t y, uint8_t character)
 
     for (size_t i = 0; i < 8; ++i) 
     {
-        ram_buffer[ram_buffer_idx++] = reversed[font_idx * 8 + i];
+        ram_buffer[ram_buffer_idx++] = font[font_idx * 8 + i];
     }
 }
 
@@ -294,14 +269,20 @@ int main()
         ssd1306_scroll_off();
 
         char* text[] = {
-            "A long time ago",
-            "  on an OLED ",
-            "   display",
-            " far far away",
-            "Lived a small",
-            "red raspberry",
-            "by the name of",
-            "    PICO"
+            // "A long time ago",
+            // "  on an OLED ",
+            // "   display",
+            // " far far away",
+            // "Lived a small",
+            // "red raspberry",
+            // "by the name of",
+            // "    PICO"
+            "ABCDEF",
+            "GHIJKL",
+            "MNOPQR",
+            "STUVWX",
+            "YZ0123",
+            "456789",
         };
         
         size_t y = 0;
