@@ -58,7 +58,7 @@ void init_display()
     ssd1306_set_display_start_line(0);
     ssd1306_seg_remap_on();
     ssd1306_set_mux_ratio(SSD1306_HEIGHT - 1);
-    ssd1306_com_out_remap_on();
+    ssd1306_com_out_scan_remap_on();
     ssd1306_set_display_offset(0);
     ssd1306_set_com_pin_config_alt_remap_off();
 

@@ -148,11 +148,11 @@ ssd1306_err_t ssd1306_init_i2c(
     }
     if(sda_pin >= NUM_BANK0_GPIOS)
     {
-        return SSD1306_ERR_SDA_PIN_INVALID;
+        return SSD1306_ERR_INVALID_SDA_PIN;
     }
     if(scl_pin >= NUM_BANK0_GPIOS)
     {
-        return SSD1306_ERR_SCL_PIN_INVALID;
+        return SSD1306_ERR_INVALID_SCL_PIN;
     }
 
     memset(&ssd1306_ctx, 0, sizeof(ssd1306_ctx_t));
@@ -632,12 +632,12 @@ ssd1306_err_t ssd1306_set_mux_ratio(
     return ssd1306_send_cmd(SSD1306_CMD_SET_MUX_RATIO, cmd_optios, count_of(cmd_optios));
 }
 
-ssd1306_err_t ssd1306_com_out_remap_off()
+ssd1306_err_t ssd1306_com_out_scan_remap_off()
 {
     return ssd1306_send_cmd(SSD1306_CMD_COM_OUT_REMAP_OFF, NULL, 0);
 }
 
-ssd1306_err_t ssd1306_com_out_remap_on()
+ssd1306_err_t ssd1306_com_out_scan_remap_on()
 {
     return ssd1306_send_cmd(SSD1306_CMD_COM_OUT_REMAP_ON, NULL, 0);
 }
