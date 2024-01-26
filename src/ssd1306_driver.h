@@ -444,7 +444,7 @@ ssd1306_err_t ssd1306_seg_remap_on();
 
 /**
  * @brief Set the multiplex ratio.
- * Allowed values are [15, 63]. To set N multiplex ratio put N-1 as a function argument 
+ * Allowed values are [15, 63]. To set N multiplex ratio put N-1 as a function argument.
  *
  * @return API error code.
  */
@@ -455,7 +455,7 @@ ssd1306_err_t ssd1306_set_mux_ratio(
 /**
  * @brief Disable COM output scan direction remap.
  * Scans from COM0 to COM[N-1], where N is multiplex ratio.
- * Display output is affected immediately
+ * Display output is affected immediately.
  *
  * @return API error code.
  */
@@ -465,7 +465,7 @@ ssd1306_err_t ssd1306_com_out_scan_remap_off();
 /**
  * @brief Enable COM output scan direction remap.
  * Scans from COM[N-1] to COM0, where N is multiplex ratio.
- * Display output is affected immediately
+ * Display output is affected immediately.
  *
  * @return API error code.
  */
