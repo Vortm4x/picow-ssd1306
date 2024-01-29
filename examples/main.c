@@ -270,20 +270,14 @@ int main()
         ssd1306_scroll_off();
 
         char* text[] = {
-            // "A long time ago",
-            // "  on an OLED ",
-            // "   display",
-            // " far far away",
-            // "Lived a small",
-            // "red raspberry",
-            // "by the name of",
-            // "    PICO"
-            "ABCDEF",
-            "GHIJKL",
-            "MNOPQR",
-            "STUVWX",
-            "YZ0123",
-            "456789",
+            "A long time ago",
+            "  on an OLED ",
+            "   display",
+            " far far away",
+            "Lived a small",
+            "red raspberry",
+            "by the name of",
+            "    PICO"
         };
         
         size_t y = 0;
