@@ -1,0 +1,8 @@
+DOXYFILE_ENCODING       = UTF-8
+OUTPUT_LANGUAGE         = English
+PROJECT_NAME            = "RP2040_PICO_SSD1306"
+PROJECT_BRIEF           = "Raspbery Pie Pico SSD1306 driver"
+OUTPUT_DIRECTORY        = ./docs
+INPUT                   = ./src/ssd1306_driver.h
+GENERATE_LATEX          = NO
+GENERATE_HTML           = YES
