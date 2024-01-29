@@ -1,3 +1,10 @@
+#include <string.h>
+#include <stdlib.h>
+#include <pico/stdlib.h>
+#include <pico/binary_info.h>
+#include <hardware/gpio.h>
+
+
 #include "ssd1306_driver.h"
 
 typedef struct ssd1306_ctx_t

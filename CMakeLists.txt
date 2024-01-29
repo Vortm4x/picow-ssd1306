@@ -14,14 +14,15 @@ pico_sdk_init()
 
 
 add_executable(${PROJECT_NAME}
-    src/main.c
     src/ssd1306_driver.h src/ssd1306_driver.c
+    examples/main.c
     examples/raspberry26x32.h
     examples/ssd1306_font.h
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE
     "include/"
+    "src/"
     "examples/"
 )
 

@@ -8,15 +8,8 @@
 #ifndef SSD1306_DRIVER_H
 #define SSD1306_DRIVER_H
 
-
 #include <stdint.h>
-#include <string.h>
-#include <stdlib.h>
-#include <pico/stdlib.h>
-#include <pico/binary_info.h>
-#include <hardware/gpio.h>
 #include <hardware/i2c.h>
-
 
 /**
  * @def SSD1306_HEIGHT
