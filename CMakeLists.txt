@@ -9,19 +9,21 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 
 include(lwip_import.cmake)
-add_subdirectory(heatshrink)
+add_subdirectory(examples/heatshrink)
 pico_sdk_init()
 
 
 add_executable(${PROJECT_NAME}
-    src/main.c
     src/ssd1306_driver.h src/ssd1306_driver.c
-    src/video_decoder.h src/video_decoder.c
-    src/bad_apple.h
+    examples/main.c
+    examples/video_decoder.h examples/video_decoder.c
+    examples/bad_apple.h
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE
-    include/
+    "include/"
+    "src/"
+    "examples/"
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
